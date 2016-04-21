@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style type="text/css">
+
+svg {
+  font-family: "Helvetica Neue", Helvetica;
+}
+
+.line {
+  fill: none;
+  stroke: #000;
+  stroke-width: 2px;
+}
+
+</style>
+<body>
+<script src="//d3js.org/d3.v3.min.js"></script>
+<script>
+
+var m = [20, 20, 30, 20],
+    w = 960 - m[1] - m[3],
+    h = 500 - m[0] - m[2];
+
+var x,
+    y,
+    duration = 1500,
+    delay = 500;
+
+var color = d3.scale.category10();
+
+var svg = d3.select("body").append("svg")
+    .attr("width", w + m[1] + m[3])
+    .attr("height", h + m[0] + m[2])
+  .append("g")
+    .attr("transform", "translate(" + m[3] + "," + m[0] + ")");
+
+var org_data;
+
+// A line generator, for the dark stroke.
+var line = d3.svg.line()
+    .interpolate("basis")
+    .x(function(d) { return x(d.time); })
+    .y(function(d) { return y(d.value); });
+
+// A area generator, for the dark stroke.
+var area = d3.svg.area()
+    .interpolate("basis")
+    .x(function(d) { return x(d.time); })
+    .y1(function(d) { return y(d.value); });
+
+
+// A line generator, for the dark stroke.
+var axis = d3.svg.line()
+    .interpolate("basis")
+    .x(function(d) { return x(d.time); })
+    .y(h);
+
+d3.tsv("cache/hourly.tsv", function(data) {
+
+  var temp = [];
+  var wind = [];
+  var humidity = [];
+
+  data.forEach(function(d) {
+      temp.push({"time": Number(d.time), "value": Number(d.temperature)});
+      wind.push({"time": Number(d.time), "value": Number(d.windSpeed)});
+      humidity.push({"time": Number(d.time), "value": Number(d.humidity)});
+  });
+
+  org_data = [
+  {
+      "key": "temp",
+      "values": temp,
+      "maxValue": d3.max(temp, function (d) { return d.value; }),
+      "minValue": d3.min(temp, function (d) { return d.value; })
+  }, {
+      "key": "wind",
+      "values": wind,
+      "maxValue": d3.max(wind, function (d) { return d.value; }),
+      "minValue": d3.min(wind, function (d) { return d.value; })
+  }, {
+      "key": "humidity",
+      "values": humidity,
+      "maxValue": d3.max(humidity, function (d) { return d.value; }),
+      "minValue": d3.min(humidity, function (d) { return d.value; })
+  }];
+
+  var g = svg.selectAll("g")
+      .data(org_data)
+    .enter().append("g")
+      .attr("class", "weather");
+
+  setTimeout(lines, duration+delay);
+});
+
+function lines() {
+  x = d3.scale.linear().range([0, w - 60]);
+  y = d3.scale.linear().range([h / 4 - 20, 0]);
+
+  x.domain([
+    d3.min(org_data[0].values, function(d) { return d.time; }),
+    d3.max(org_data[0].values, function(d) { return d.time; })
+  ]);
+
+  var g = svg.selectAll(".weather")
+      .attr("transform", function(d, i) { return "translate(0," + (i * h / 4 + 10) + ")"; });
+
+  g.each(function(d) {
+    var e = d3.select(this);
+
+    e.append("path")
+        .attr("class", "line");
+
+    e.append("circle")
+        .attr("r", 5)
+        .style("fill", function(d) { return color(d.key); })
+        .style("stroke", "#000")
+        .style("stroke-width", "2px");
+
+    e.append("text")
+        .attr("x", 12)
+        .attr("dy", ".31em")
+        .text(d.key);
+  });
+
+  function draw(k) {
+    g.each(function(d) {
+      var e = d3.select(this);
+      y.domain([0, d.maxValue]);
+
+      e.select("path")
+          .attr("d", function(d) { return line(d.values.slice(0, k + 1)); });
+
+      e.selectAll("circle, text")
+          .data(function(d) { return [d.values[k], d.values[k]]; })
+          .attr("transform", function(d) { return "translate(" + x(d.time) + "," + y(d.value) + ")"; });
+    });
+  }
+
+  var k = 1, n = org_data[0].values.length;
+  d3.timer(function() {
+    draw(k);
+    if ((k += 2) >= n - 1) {
+      draw(n - 1);
+      setTimeout(horizons, duration + delay);
+      return true;
+    }
+  });
+}
+
+function horizons() {
+  svg.insert("defs", ".weather")
+    .append("clipPath")
+      .attr("id", "clip")
+    .append("rect")
+      .attr("width", w)
+      .attr("height", h / 4 - 20);
+
+  var color = d3.scale.ordinal()
+      .range(["#c6dbef", "#9ecae1", "#6baed6"]);
+
+  var g = svg.selectAll(".weather")
+      .attr("clip-path", "url(#clip)");
+
+  area
+      .y0(h / 4 - 20);
+
+  g.select("circle").transition()
+      .duration(duration)
+      .attr("transform", function(d) { return "translate(" + (w - 60) + "," + (-h / 4) + ")"; })
+      .remove();
+
+  g.select("text").transition()
+      .duration(duration)
+      .attr("transform", function(d) { return "translate(" + (w - 60) + "," + (h / 4 - 20) + ")"; })
+      .attr("dy", "0em");
+
+  g.each(function(d) {
+    y.domain([d.minValue, d.maxValue]);
+
+    d3.select(this).selectAll(".area")
+        .data(d3.range(3))
+      .enter().insert("path", ".line")
+        .attr("class", "area")
+        .attr("transform", function(d) { return "translate(0," + (d * (h / 4 - 20)) + ")"; })
+        .attr("d", area(d.values))
+        .style("fill", function(d, i) { return color(i); })
+        .style("fill-opacity", 1e-6);
+
+    y.domain([0, d.maxValue * .5]);
+
+    d3.select(this).selectAll(".line").transition()
+        .duration(duration)
+        .attr("d", line(d.values))
+        .style("stroke-opacity", 1e-6);
+
+    d3.select(this).selectAll(".area").transition()
+        .duration(duration)
+        .style("fill-opacity", 1)
+        .attr("d", area(d.values))
+        .each("end", function() { d3.select(this).style("fill-opacity", null); });
+  });
+
+  setTimeout(areas, duration + delay);
+}
+
+function areas() {
+  var g = svg.selectAll(".weather");
+
+  axis
+      .y(h / 4 - 21);
+
+  g.select(".line")
+      .attr("d", function(d) { return axis(d.values); });
+
+  g.each(function(d) {
+    y.domain([0, d.maxValue]);
+
+    d3.select(this).select(".line").transition()
+        .duration(duration)
+        .style("stroke-opacity", 1)
+        .each("end", function() { d3.select(this).style("stroke-opacity", null); });
+
+    d3.select(this).selectAll(".area")
+        .filter(function(d, i) { return i; })
+      .transition()
+        .duration(duration)
+        .style("fill-opacity", 1e-6)
+        .attr("d", area(d.values))
+        .remove();
+
+    d3.select(this).selectAll(".area")
+        .filter(function(d, i) { return !i; })
+      .transition()
+        .duration(duration)
+        .style("fill", color(d.key))
+        .attr("d", area(d.values));
+  });
+
+  svg.select("defs").transition()
+      .duration(duration)
+      .remove();
+
+  g.transition()
+      .duration(duration)
+      .each("end", function() { d3.select(this).attr("clip-path", null); });
+
+  setTimeout(stackedArea, duration + delay);
+}
+
+
+</script>

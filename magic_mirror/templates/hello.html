@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body {
+        background-color: black;
+}
+
+h1 {
+        color: orange;
+        text-align: center;
+}
+
+p {
+        font-family: "Times New Roman";
+        font-size: 20px;
+        color: white;
+}
+</style>
+<script language="JavaScript">
+    function refreshIt(element) {
+    setTimeout(function() {
+        element.src = {{map_src}};
+        refreshIt(element);
+        }, 1000); // refresh every 50ms
+    }
+</script>
+</head>
+<body>
+<h1>How's my traffic look?</h1>
+<p id="map">
+<img name="map_img0" alt="map0" src="http://127.0.0.1:5000/current_map/0" style="width:600px;height:300px;">
+<img name="map_img1" alt="map1" src="http://127.0.0.1:5000/current_map/1" style="width:600px;height:300px;">
+<img name="map_img1" alt="map2" src="http://127.0.0.1:5000/current_map/2" style="width:600px;height:300px;">
+<!--
+<img src="https://upload.wikimedia.org/wikipedia/commons/6/60/Matterhorn_from_Domh%C3%BCtte_-_2.jpg" alt="HTML5 Icon" style="width:128px;height:128px;">
+-->
+</p>
+
+<p id="demo">
+</p>
+
+<script>
+var i = 0;
+var text = "";
+setInterval(function(){
+        text = "<br>The number is " + i;
+        document.getElementById("demo").innerHTML = text;
+        i++;
+}, 1000);
+</script>
+
+</body>
+</html>
