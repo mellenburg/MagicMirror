@@ -6,7 +6,7 @@ import requests
 from urllib.parse import urlencode
 
 import forecastio
-from flask import Flask, render_template, url_for
+from flask import Flask, render_template
 
 app = Flask(__name__)
 
@@ -23,12 +23,6 @@ except:
 
 MAP_REQ_COUNTER = 0
 IMG_CACHE = []
-
-
-@app.route('/d3.v3.min.js')
-def get_d3():
-    return url_for('static', filename='d3.v3.min.js')
-    # app.send_static_file('d3.v3.min.js')
 
 
 @app.route('/current_map')
@@ -201,9 +195,7 @@ def get_direction_routes():
 
 
 def main():
-    # refresh_maps()
     check_environ()
-    assert app.has_static_folder
     app.run(debug=True)
 
 
