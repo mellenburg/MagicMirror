@@ -14,7 +14,7 @@ svg {
 
 </style>
 <body>
-<script src="//d3js.org/d3.v3.min.js"></script>
+<script src="static/d3.v3.min.js"></script>
 <script>
 
 var m = [20, 20, 30, 20],
@@ -60,11 +60,13 @@ d3.tsv("cache/hourly.tsv", function(data) {
   var temp = [];
   var wind = [];
   var humidity = [];
+  var apparentTemp = [];
 
   data.forEach(function(d) {
       temp.push({"time": Number(d.time), "value": Number(d.temperature)});
       wind.push({"time": Number(d.time), "value": Number(d.windSpeed)});
       humidity.push({"time": Number(d.time), "value": Number(d.humidity)});
+      apparentTemp.push({"time": Number(d.time), "value": Number(d.apparentTemperature)});
   });
 
   org_data = [
@@ -73,6 +75,11 @@ d3.tsv("cache/hourly.tsv", function(data) {
       "values": temp,
       "maxValue": d3.max(temp, function (d) { return d.value; }),
       "minValue": d3.min(temp, function (d) { return d.value; })
+  }, {
+      "key": "apparent\nTemp",
+      "values": apparentTemp,
+      "maxValue": d3.max(apparentTemp, function (d) { return d.value; }),
+      "minValue": d3.min(apparentTemp, function (d) { return d.value; })
   }, {
       "key": "wind",
       "values": wind,
@@ -248,5 +255,237 @@ function areas() {
   setTimeout(stackedArea, duration + delay);
 }
 
+function stackedArea() {
+  var stack = d3.layout.stack()
+    .values(function(d) { return d.values; })
+    .x(function(d) { return d.time; })
+    .y(function(d) { return d.value })
+    .out(function(d, y0, y) { d.value0 = y0; })
+    .order("reverse");
+
+stack(org_data);
+
+y
+.domain([0, d3.max(org_data[0].values.map(function(d) { return d.value + d.value0; }))])
+.range([h, 0]);
+
+line
+.y(function(d) { return y(d.value0); });
+
+area
+.y0(function(d) { return y(d.value0); })
+.y1(function(d) { return y(d.value0 + d.value); });
+
+var t = svg.selectAll(".weather").transition()
+.duration(duration)
+.attr("transform", "translate(0,0)")
+.each("end", function() { d3.select(this).attr("transform", null); });
+
+t.select("path.area")
+.attr("d", function(d) { return area(d.values); });
+
+t.select("path.line")
+.style("stroke-opacity", function(d, i) { return i < 3 ? 1e-6 : 1; })
+.attr("d", function(d) { return line(d.values); });
+
+t.select("text")
+.attr("transform", function(d) { d = d.values[d.values.length - 1]; return "translate(" + (w - 60) + "," + y(d.value / 2 + d.value0) + ")"; });
+
+setTimeout(streamgraph, duration + delay);
+}
+
+
+function streamgraph() {
+  var stack = d3.layout.stack()
+      .values(function(d) { return d.values; })
+      .x(function(d) { return d.time; })
+      .y(function(d) { return d.value; })
+      .out(function(d, y0, y) { d.value0 = y0; })
+      .order("reverse")
+      .offset("wiggle");
+
+  stack(org_data);
+
+  line
+      .y(function(d) { return y(d.value0); });
+
+  var t = svg.selectAll(".weather").transition()
+      .duration(duration);
+
+  t.select("path.area")
+      .attr("d", function(d) { return area(d.values); });
+
+  t.select("path.line")
+      .style("stroke-opacity", 1e-6)
+      .attr("d", function(d) { return line(d.values); });
+
+  t.select("text")
+      .attr("transform", function(d) { d = d.values[d.values.length - 1]; return "translate(" + (w - 60) + "," + y(d.value / 2 + d.value0) + ")"; });
+
+  setTimeout(overlappingArea, duration + delay);
+}
+
+function overlappingArea() {
+  var g = svg.selectAll(".weather");
+
+  line
+      .y(function(d) { return y(d.value0 + d.value); });
+
+  g.select(".line")
+      .attr("d", function(d) { return line(d.values); });
+
+  y
+      .domain([0, d3.max(org_data.map(function(d) { return d.maxValue; }))])
+      .range([h, 0]);
+
+  area
+      .y0(h)
+      .y1(function(d) { return y(d.value); });
+
+  line
+      .y(function(d) { return y(d.value); });
+
+  var t = g.transition()
+      .duration(duration);
+
+  t.select(".line")
+      .style("stroke-opacity", 1)
+      .attr("d", function(d) { return line(d.values); });
+
+  t.select(".area")
+      .style("fill-opacity", .5)
+      .attr("d", function(d) { return area(d.values); });
+
+  t.select("text")
+      .attr("dy", ".31em")
+      .attr("transform", function(d) { d = d.values[d.values.length - 1]; return "translate(" + (w - 60) + "," + y(d.value) + ")"; });
+
+  svg.append("line")
+      .attr("class", "line")
+      .attr("x1", 0)
+      .attr("x2", w - 60)
+      .attr("y1", h)
+      .attr("y2", h)
+      .style("stroke-opacity", 1e-6)
+    .transition()
+      .duration(duration)
+      .style("stroke-opacity", 1);
+
+  setTimeout(groupedBar, duration + delay);
+}
+
+function groupedBar() {
+  x = d3.scale.ordinal()
+      .domain(org_data[0].values.map(function(d) { return d.time; }))
+      .rangeBands([0, w - 60], .1);
+
+  var x1 = d3.scale.ordinal()
+      .domain(org_data.map(function(d) { return d.key; }))
+      .rangeBands([0, x.rangeBand()]);
+
+  var g = svg.selectAll(".weather");
+
+  var t = g.transition()
+      .duration(duration);
+
+  t.select(".line")
+      .style("stroke-opacity", 1e-6)
+      .remove();
+
+  t.select(".area")
+      .style("fill-opacity", 1e-6)
+      .remove();
+
+  g.each(function(p, j) {
+    d3.select(this).selectAll("rect")
+        .data(function(d) { return d.values; })
+      .enter().append("rect")
+        .attr("x", function(d) { return x(d.time) + x1(p.key); })
+        .attr("y", function(d) { return y(d.value); })
+        .attr("width", x1.rangeBand())
+        .attr("height", function(d) { return h - y(d.value); })
+        .style("fill", color(p.key))
+        .style("fill-opacity", 1e-6)
+      .transition()
+        .duration(duration)
+        .style("fill-opacity", 1);
+  });
+
+  setTimeout(stackedBar, duration + delay);
+}
+
+function stackedBar() {
+  x.rangeRoundBands([0, w - 60], .1);
+
+  var stack = d3.layout.stack()
+      .values(function(d) { return d.values; })
+      .x(function(d) { return d.time; })
+      .y(function(d) { return d.value; })
+      .out(function(d, y0, y) { d.value0 = y0; })
+      .order("reverse");
+
+  var g = svg.selectAll(".weather");
+
+  stack(org_data);
+
+  y
+      .domain([0, d3.max(org_data[0].values.map(function(d) { return d.value + d.value0; }))])
+      .range([h, 0]);
+
+  var t = g.transition()
+      .duration(duration / 2);
+
+  t.select("text")
+      .delay(org_data[0].values.length * 10)
+      .attr("transform", function(d) { d = d.values[d.values.length - 1]; return "translate(" + (w - 60) + "," + y(d.value / 2 + d.value0) + ")"; });
+
+  t.selectAll("rect")
+      .delay(function(d, i) { return i * 10; })
+      .attr("y", function(d) { return y(d.value0 + d.value); })
+      .attr("height", function(d) { return h - y(d.value); })
+      .each("end", function() {
+        d3.select(this)
+            .style("stroke", "#fff")
+            .style("stroke-opacity", 1e-6)
+          .transition()
+            .duration(duration / 2)
+            .attr("x", function(d) { return x(d.time); })
+            .attr("width", x.rangeBand())
+            .style("stroke-opacity", 1);
+      });
+
+  setTimeout(reset, duration + org_data[0].values.length * 10 + delay);
+}
+
+function reset() {
+
+  var g = svg.selectAll(".weather");
+  g.select("circle").transition()
+      .duration(duration)
+      .remove();
+
+  g.selectAll("line").transition()
+      .duration(duration)
+      .remove();
+
+  g.select("area").transition()
+      .duration(duration)
+      .remove();
+
+  g.selectAll("rect").transition()
+      .duration(duration)
+      .remove();
+
+  g.selectAll("text").transition()
+      .duration(duration)
+      .remove();
+
+  var bottom_line = svg.select("line");
+  bottom_line.transition()
+      .duration(duration)
+      .remove();
+
+  setTimeout(lines, duration);
+}
 
 </script>

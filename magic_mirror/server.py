@@ -6,7 +6,7 @@ import requests
 from urllib.parse import urlencode
 
 import forecastio
-from flask import Flask, render_template
+from flask import Flask, render_template, url_for
 
 app = Flask(__name__)
 
@@ -27,7 +27,8 @@ IMG_CACHE = []
 
 @app.route('/d3.v3.min.js')
 def get_d3():
-    app.send_static_file('d3.v3.min.js')
+    return url_for('static', filename='d3.v3.min.js')
+    # app.send_static_file('d3.v3.min.js')
 
 
 @app.route('/current_map')
