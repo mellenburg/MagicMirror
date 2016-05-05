@@ -143,8 +143,8 @@ def refresh_maps():
         IMG_CACHE.append(r)
 
 
-def get_weather_forecast():
-    forecast = forecastio.load_forecast(FORECAST_API_KEY, 37.8267, -122.423)
+def get_weather_forecast(lat=37.8267, lon=-122.423):
+    forecast = forecastio.load_forecast(FORECAST_API_KEY, lat, lon)
     for point in forecast.daily().data:
         print(point)
     return forecast

@@ -13,3 +13,8 @@ Temperature
 -------
 * stacked bar graph with apparent temperature, humidity, and actual temperature
 * grouped bars with two y axis
+
+TODO
+----
+* Refresh graphs when new poll information is available
+* Fill bars in chart with image

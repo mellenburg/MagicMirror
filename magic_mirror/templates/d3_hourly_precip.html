@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style type="text/css">
+
+svg {
+  font-family: "Helvetica Neue", Helvetica;
+}
+
+</style>
+<body>
+<script src="static/d3.v3.min.js"></script>
+<script>
+
+var margin = {top: 20, right: 20, bottom: 30, left: 40},
+    width = 960 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+var x = d3.time.scale()
+    .range([0, width]);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var y1 = d3.scale.linear()
+    .range([height, 0]);
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .ticks(d3.time.hour, 4)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+    .ticks(10, "%");
+
+var duration = 1000,
+    delay = 500;
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.bottom + margin.top)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var precip = [];
+
+d3.tsv("cache/hourly.tsv", function(data) {
+
+
+  data.forEach(function(d) {
+      precip.push({"time": d.time*1000, "value0": Number(d.precipProbability), "value1": Number(d.precipIntensity)});
+  });
+
+  setTimeout(errorBar, delay);
+});
+
+function errorBar() {
+    x.domain([precip[0].time, precip[precip.length-1].time]);
+
+    y.domain([0, .2]);
+    y1.domain([0, d3.max(precip, function(d) { return d.value1; })]);
+
+    svg.append("g")
+        .attr("class", "axis")
+        .attr("transform", "translate(0," + height + ")")
+        .style("fill-opacity", 1e-6)
+        .call(xAxis);
+
+    svg.append("g")
+        .attr("class", "axis")
+        .style("fill-opacity", 1e-6)
+        .call(yAxis)
+      .append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 6)
+        .attr("dy", ".71em")
+        .style("text-anchor", "end")
+        .text("Percipitation Probability")
+
+    svg.selectAll(".axis").transition()
+        .duration(duration*2)
+        .style("fill-opacity", 1);
+
+    svg.selectAll(".bar")
+        .data(precip)
+      .enter().append("rect")
+        .attr("class", "bar")
+        .attr("x", function(d) { return x(d.time); })
+        .attr("width", 15)
+        .attr("y", 0)
+        .attr("height", 0)
+        .style("fill", "blue")
+      .transition()
+        .duration(duration)
+        .attr("y", function(d) { return y(0)-(height-y1(d.value1))/8; })
+        .attr("height", function(d) { return (height - y1(d.value1))/8; })
+      .transition()
+        .duration(duration)
+        .attr("y", function(d) { return y(d.value0)-(height-y1(d.value1))/8; })
+        .attr("height", function(d) { return (height - y1(d.value1))/4; });
+}
+
+</script>
